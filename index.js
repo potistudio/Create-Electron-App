@@ -1,102 +1,100 @@
 const childProcess = require ("node:child_process");
 const path = require ("node:path");
 const fsPromises = require ("node:fs/promises");
-
 const Enquirer = require ("enquirer");
 
 const templates = {
 	"gitattributes": "# Auto detect text files and perform LF normalization\n* text=auto\n",
-	"readme": (_name, _desc) => { return `# ${_name}\n\n${_desc}\n`; }
+	"readme": (_name, _description) => { return `# ${_name || "{NAME}"}\n\n${_description || "{DESCRIPTION}"}\n`; },
+	"ignore": {
+		"Node.js": "Node",
+		"Sass": "Sass"
+	},
+	"license": {
+		"GPL 2.0": "gpl2",
+		"MIT": "mit"
+	}
 };
 
-const question = [
-	{
-		type: "input",
-		name: "name",
-		message: "Project Name (This Name will also be Repository Name)"
-	},
-	{
-		type: "input",
-		name: "description",
-		message: "Project Description"
-	},
-	{
-		type: "input",
-		name: "path",
-		message: "Where is Your Local Path ?",
-		initial: "./"
-	},
-	{
-		type: "confirm",
-		name: "usegit",
-		message: "Do You Use Git ?",
-		initial: true
-	},
-	// {
-	// 	type: "multiselect",
-	// 	name: "packages",
-	// 	choices: [
-		// 		{ name: "electron", value: "Electron" },
-		// 		{ name: "typescript", value: "TypeScript" },
-		// 		{ name: "sass", value: "Sass" },
-		// 		{ name: "prettier", value: "Prettier" },
-		// 		{ name: "eslint", value: "ESLint" }
-		// 	]
-	// }
-];
+const questions = {
+	"projectInfo": [
+		{
+			type: "input",
+			name: "name",
+			message: "Project Name"
+		},
+		{
+			type: "input",
+			name: "description",
+			message: "Project Description"
+		},
+		{
+			type: "input",
+			name: "path",
+			message: "Where is Your Local Path ?",
+			initial: "./"
+		}
+	],
+	"gitSettings": [
+		{
+			type: "multiselect",
+			name: "ignore",
+			message: "gitignore Template",
+			choices: [
+				"Node.js",
+				"Sass"
+			]
+		},
+		{
+			type: "select",
+			name: "license",
+			message: "Choose A License",
+			choices: [
+				"GPL 2.0",
+				"MIT"
+			]
+		}
+	]
+};
 
 let projectPath = "";
 let projectName = "";
-let projectDesc = "";
+let projectDescription = "";
 
-Enquirer.prompt (question)
-	.then (answer => createApp(answer));
+!function main() {
+	Enquirer.prompt (questions["projectInfo"])
+		.then (_answer => {
+			let name = _answer["name"].split (" ");
+			name = name.join("-");
+			
+			createApp (name, _answer["description"], _answer["path"]);
 
-function createApp (_answer) {
-	projectName = _answer["name"];
-	projectDesc = _answer["description"];
+			Enquirer.prompt ({ type: "confirm", name: "usegit", message: "Do You Use Git ?", initial: true })
+				.then (_answer => {
+					Enquirer.prompt (questions["gitSettings"])
+						.then (_answer => initGit (templates["ignore"][_answer["ignore"]], templates["license"][_answer["license"]]));
+				});
+		});
+}();
 
-	if (path.isAbsolute(_answer["path"]))
-		projectPath = _answer["path"];
-	else // is relative
-		projectPath = path.join (process.cwd(), _answer["path"]);
+function createApp (_name, _description, _path) {
+	projectName = _name;
+	projectDescription = _description;
+
+	if (path.isAbsolute(_path))
+		projectPath = _path;
+	else
+		projectPath = path.join (process.cwd(), _path);
 	
-	projectPath = path.join (projectPath, _answer["name"]);
-
-	if (_answer["usegit"])
-		initGit();
-
-	// for (let i = 0; _answer["packages"].length; i++) {
-	// 	switch (_answer["packages"][i]) {
-	// 		case "electron":
-	// 			console.log ("Import Electron");
-	// 			break;
-
-	// 		case "typescript":
-	// 			console.log ("Initialize TypeScript");
-	// 			break;
-
-	// 		case "sass":
-	// 			console.log ("Initialize Sass");
-	// 			break;
-
-	// 		case "prettier":
-	// 			console.log ("Initialize Prettier");
-	// 			break;
-
-	// 		case "eslint":
-	// 			console.log ("Initialize ESLint");
-	// 			break;
-
-	// 		default:
-	// 			return;
-	// 	}
-	// }
+	projectPath = path.join (projectPath, _name);
 }
 
-function initGit() {
+function initGit (_ignore, _license) {
 	childProcess.execSync ("git init " + projectPath);
 
 	fsPromises.writeFile (path.join(projectPath, ".gitattributes"), templates["gitattributes"]);
-	fsPromises.writeFile (path.join(projectPath, "README.md"), templates["readme"](projectName, projectDesc));
+	fsPromises.writeFile (path.join(projectPath, "README.md"), templates["readme"](projectName, projectDescription));
+
+	fsPromises.copyFile (`./templates/gitignore/${_ignore}.gitignore`, path.join(projectPath, ".gitignore"));
+	fsPromises.copyFile (`./templates/license/${_license}.txt`, path.join(projectPath, "LICENSE"));
 }
