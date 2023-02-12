@@ -1,7 +1,12 @@
 const childProcess = require ("node:child_process");
 const path = require ("node:path");
+const fsPromises = require ("node:fs/promises");
 
 const Enquirer = require ("enquirer");
+
+const templates = {
+	"gitattributes": "# Auto detect text files and perform LF normalization\n* text=auto\n"
+};
 
 const question = [
 	{
@@ -79,5 +84,7 @@ function createApp (_answer) {
 }
 
 function initGit() {
-	childProcess.exec ("git init " + projectPath);
+	childProcess.execSync ("git init " + projectPath); // Init git
+
+	fsPromises.writeFile (path.join(projectPath, ".gitattributes"), templates["gitattributes"]);
 }
