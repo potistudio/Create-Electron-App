@@ -1,0 +1,23 @@
+{
+  "name": "create-electron-app",
+  "version": "1.0.0",
+  "description": "Create and Initialize Your Electron App with Other Packages",
+  "main": "./index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/potistudio/Create-Electron-App.git"
+  },
+  "author": "POTI-Studio",
+  "license": "GPL-2.0",
+  "bugs": {
+    "url": "https://github.com/potistudio/Create-Electron-App/issues"
+  },
+  "homepage": "https://github.com/potistudio/Create-Electron-App#readme",
+  "dependencies": {
+    "enquirer": "^2.3.6"
+  }
+}
