@@ -79,8 +79,5 @@ function createApp (_answer) {
 }
 
 function initGit() {
-	// git.clone ("https://github.com/tonsky/FiraCode", "./dist");
-	// git.init ("./dist");
-	// childProcess.exec ("git init " + "");
-	console.log(projectPath);
+	childProcess.exec ("git init " + projectPath);
 }
