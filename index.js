@@ -4,17 +4,19 @@ const fsPromises = require ("node:fs/promises");
 const Enquirer = require ("enquirer");
 
 const templates = {
-	"gitattributes": "# Auto detect text files and perform LF normalization\n* text=auto\n",
-	"readme": (_name, _description) => { return `# ${_name || "{NAME}"}\n\n${_description || "{DESCRIPTION}"}\n`; },
-	"ignore": {
+	"gitattributes": `# Auto detect text files and perform LF normalization\n* text=auto\n`,
+	"readme": (_name, _description) => { return `# ${_name}\n\n${_description}\n`; },
+	"gitignore": {
+		"None": null,
 		"Node.js": "Node",
 		"Sass": "Sass"
 	},
 	"license": {
+		"None": null,
 		"GPL 2.0": "gpl2",
 		"MIT": "mit"
 	},
-	"package": (_name, _description, _version, _entry, _author, _license) => { return `{\n  "name": "${_name}",\n  "version": "${_version}"\n,  "description": "${_description}",\n  "main": "${_entry}",\n  "scripts": {\n    "test": "echo \\"Error: no test specified\\" && exit 1"\n  },\n  "keyword": [],\n  "author": "${_author}",\n  "license": "${_license}"\n}`;
+	"package": (_name, _description, _version, _entry, _author, _license) => { return `{\n  "name": "${_name}",\n  "version": "${_version}",\n  "description": "${_description}",\n  "main": "${_entry}",\n  "scripts": {\n    "test": "echo \\"Error: no test specified\\" && exit 1"\n  },\n  "keyword": [],\n  "author": "${_author}",\n  "license": "${_license}"\n}`;
 }
 };
 
@@ -39,10 +41,17 @@ const questions = {
 	],
 	"gitSettings": [
 		{
-			type: "multiselect",
+			type: "confirm",
+			name: "createReadme",
+			message: "Create README.md",
+			initial: true
+		},
+		{
+			type: "select",
 			name: "ignore",
-			message: "gitignore Template",
+			message: "Choose a Gitignore Template",
 			choices: [
+				"None",
 				"Node.js",
 				"Sass"
 			]
@@ -50,8 +59,9 @@ const questions = {
 		{
 			type: "select",
 			name: "license",
-			message: "Choose A License",
+			message: "Choose a License",
 			choices: [
+				"None",
 				"GPL 2.0",
 				"MIT"
 			]
@@ -66,15 +76,16 @@ let projectLicense = "";
 
 // Create Prompts and Execute Each Processes
 !function main() {
-	Enquirer.prompt (questions["projectInfo"])
+	Enquirer.prompt (questions["projectInfo"]) // Project Info
 		.then (_answer => {
-			createApp(_answer["name"].split(" ").join("-"), _answer["description"], _answer["path"]);
+			createApp (_answer["name"].split(" ").join("-"), _answer["description"], _answer["path"]); // Create App
 
-			Enquirer.prompt ({ type: "confirm", name: "usegit", message: "Do You Use Git ?", initial: true })
+			Enquirer.prompt ({ type: "confirm", name: "usegit", message: "Use Git ?", initial: true }) // is Using Git ?
 				.then (_answer => {
 					if (_answer["usegit"])
-						Enquirer.prompt (questions["gitSettings"])
-							.then (_answer => initGit (templates["ignore"][_answer["ignore"]], templates["license"][_answer["license"]]));
+						Enquirer.prompt (questions["gitSettings"]) // Git Settings Prompt
+							.then (_answer =>
+								initGit (_answer["createReadme"], _answer["ignore"], _answer["license"])); // Git Initialize
 				});
 		});
 }();
@@ -91,24 +102,37 @@ function createApp (_name, _description, _path) {
 	projectPath = path.join (projectPath, _name);
 
 	fsPromises.mkdir (projectPath);
-	initPackage();
+	initPackage(); // TODO
 }
 
 /**
- * 
- * @param { string } ignore | gitignore File Name
- * @param { string } license | License File Name
+ * @param { boolean } createReadme | Wheather to Create README.md
+ * @param { string } ignore | Readable gitignore Name. For Example, "Node.js", "Unity". If This is null, It will not Create a .gitignore File.
+ * @param { string } license | Readable License Name. For Example, "GPL 2.0", "MIT". If This is null, It will not Create a LICENSE File.
  */
-function initGit (_ignore, _license) {
+function initGit (_createReadme, _ignore, _license) {
 	projectLicense = _license;
 
-	childProcess.execSync ("git init " + projectPath);
+	let ignoreFileName = templates["gitignore"][_ignore];
+	let licenseFileName = templates["license"][_license];
 
+	// git init
+	childProcess.exec ("git init " + projectPath);
+
+	// .gitattribute
 	fsPromises.writeFile (path.join(projectPath, ".gitattributes"), templates["gitattributes"]);
-	fsPromises.writeFile (path.join(projectPath, "README.md"), templates["readme"](projectName, projectDescription));
 
-	fsPromises.copyFile (`./templates/gitignore/${_ignore}.gitignore`, path.join(projectPath, ".gitignore"));
-	fsPromises.copyFile (`./templates/license/${_license}.txt`, path.join(projectPath, "LICENSE"));
+	// README.md
+	if (_createReadme)
+		fsPromises.writeFile (path.join(projectPath, "README.md"), templates["readme"](projectName, projectDescription));
+
+	// .gitignore
+	if (ignoreFileName != null)
+		fsPromises.copyFile (`./templates/gitignore/${ignoreFileName}.gitignore`, path.join(projectPath, ".gitignore"));
+	
+	// LICENSE
+	if (licenseFileName != null)
+		fsPromises.copyFile (`./templates/license/${licenseFileName}.txt`, path.join(projectPath, "LICENSE"));
 }
 
 function initPackage (_version, _entry, _author) {
