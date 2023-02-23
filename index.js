@@ -13,7 +13,9 @@ const templates = {
 	"license": {
 		"GPL 2.0": "gpl2",
 		"MIT": "mit"
-	}
+	},
+	"package": (_name, _description, _version, _entry, _author, _license) => { return `{\n  "name": "${_name}",\n  "version": "${_version}"\n,  "description": "${_description}",\n  "main": "${_entry}",\n  "scripts": {\n    "test": "echo \\"Error: no test specified\\" && exit 1"\n  },\n  "keyword": [],\n  "author": "${_author}",\n  "license": "${_license}"\n}`;
+}
 };
 
 const questions = {
@@ -60,19 +62,19 @@ const questions = {
 let projectPath = "";
 let projectName = "";
 let projectDescription = "";
+let projectLicense = "";
 
+// Create Prompts and Execute Each Processes
 !function main() {
 	Enquirer.prompt (questions["projectInfo"])
 		.then (_answer => {
-			let name = _answer["name"].split (" ");
-			name = name.join("-");
-			
-			createApp (name, _answer["description"], _answer["path"]);
+			createApp(_answer["name"].split(" ").join("-"), _answer["description"], _answer["path"]);
 
 			Enquirer.prompt ({ type: "confirm", name: "usegit", message: "Do You Use Git ?", initial: true })
 				.then (_answer => {
-					Enquirer.prompt (questions["gitSettings"])
-						.then (_answer => initGit (templates["ignore"][_answer["ignore"]], templates["license"][_answer["license"]]));
+					if (_answer["usegit"])
+						Enquirer.prompt (questions["gitSettings"])
+							.then (_answer => initGit (templates["ignore"][_answer["ignore"]], templates["license"][_answer["license"]]));
 				});
 		});
 }();
@@ -87,9 +89,19 @@ function createApp (_name, _description, _path) {
 		projectPath = path.join (process.cwd(), _path);
 	
 	projectPath = path.join (projectPath, _name);
+
+	fsPromises.mkdir (projectPath);
+	initPackage();
 }
 
+/**
+ * 
+ * @param { string } ignore | gitignore File Name
+ * @param { string } license | License File Name
+ */
 function initGit (_ignore, _license) {
+	projectLicense = _license;
+
 	childProcess.execSync ("git init " + projectPath);
 
 	fsPromises.writeFile (path.join(projectPath, ".gitattributes"), templates["gitattributes"]);
@@ -97,4 +109,8 @@ function initGit (_ignore, _license) {
 
 	fsPromises.copyFile (`./templates/gitignore/${_ignore}.gitignore`, path.join(projectPath, ".gitignore"));
 	fsPromises.copyFile (`./templates/license/${_license}.txt`, path.join(projectPath, "LICENSE"));
+}
+
+function initPackage (_version, _entry, _author) {
+	fsPromises.writeFile (path.join(projectPath, "package.json"), templates["package"](projectName.toLowerCase(), projectDescription, "1.0.0", "./index.js", "POTI-Studio", projectLicense));
 }
